@@ -240,7 +240,14 @@ async function fetchPriceData() {
     }),
   });
 
-  return response.json();
+  const json = await response.json().catch(() => null);
+  if (!response.ok || !json?.data) {
+    const reason =
+      json?.error ?? json?.errors?.[0]?.message ?? `HTTP ${response.status}`;
+    throw new Error(`Failed to load price data: ${reason}`);
+  }
+
+  return json;
 }
 
 export default function PriceComparisonChart() {
@@ -474,8 +481,9 @@ export default function PriceComparisonChart() {
     }
   };
 
-  if (isLoading) return <div>Loading...</div>;
-  if (error) return <div>Error loading data</div>;
+  // Keep showing the last good data if a later refresh fails
+  if (error && !data) return <div>Error loading data</div>;
+  if (isLoading || !data) return <div>Loading...</div>;
 
   // Update the data mapping
   const redstoneData = data.data.RedstoneProxy_ValueUpdate.map(
